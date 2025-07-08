@@ -1,1 +1,0 @@
-# hamyareketabdar.github.io
