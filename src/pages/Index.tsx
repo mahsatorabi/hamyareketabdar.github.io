@@ -47,24 +47,35 @@ interface DonationRequest {
 
 const Index = () => {
   const [user, setUser] = useState<{ username: string; role: 'librarian' | 'guest' } | null>(null);
+
+  // بازیابی کاربر از localStorage هنگام لود شدن صفحه
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
   // Firestore-backed states
-  const { state: books, setState: setBooks, loading: booksLoading } = usePageState<Book[]>("books", { name: user?.username ?? "unknown", email: "unknown@example.com" });
-  const { state: needs, setState: setNeeds, loading: needsLoading } = usePageState<CollectionNeed[]>("needs", { name: user?.username ?? "unknown", email: "unknown@example.com" });
-  const { state: donationRequests, setState: setDonationRequests, loading: donationLoading } = usePageState<DonationRequest[]>("donationRequests", { name: user?.username ?? "unknown", email: "unknown@example.com" });
+  const { state: books, setState: setBooks, loading: booksLoading, error: booksError } = usePageState<Book[]>("books", { name: user?.username ?? "unknown", email: "unknown@example.com" });
+  const { state: needs, setState: setNeeds, loading: needsLoading, error: needsError } = usePageState<CollectionNeed[]>("needs", { name: user?.username ?? "unknown", email: "unknown@example.com" });
+  const { state: donationRequests, setState: setDonationRequests, loading: donationLoading, error: donationError } = usePageState<DonationRequest[]>("donationRequests", { name: user?.username ?? "unknown", email: "unknown@example.com" });
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNeedsForm, setShowNeedsForm] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [activeTab, setActiveTab] = useState<'books' | 'needs' | 'donations'>('books');
 
-  // Remove fetchAllData and localStorage usage
-
   const handleLogin = (username: string, password: string) => {
     if (username === 'ketab' && password === '1234') {
-      setUser({ username, role: 'librarian' });
+      const userObj = { username, role: 'librarian' };
+      setUser(userObj);
+      localStorage.setItem('user', JSON.stringify(userObj));
       return true;
     } else if (username === 'guest' && password === 'guest') {
-      setUser({ username, role: 'guest' });
+      const userObj = { username, role: 'guest' };
+      setUser(userObj);
+      localStorage.setItem('user', JSON.stringify(userObj));
       return true;
     }
     return false;
@@ -72,15 +83,16 @@ const Index = () => {
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('user');
   };
 
-  const filteredBooks = (books || []).filter(book => 
+  const filteredBooks = (books || []).filter(book =>
     book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     book.authors.some(author => author.toLowerCase().includes(searchTerm.toLowerCase())) ||
     book.publisher.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredNeeds = (needs || []).filter(need => 
+  const filteredNeeds = (needs || []).filter(need =>
     need.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     need.authors.some(author => author.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (need.publisher && need.publisher.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -162,6 +174,13 @@ const Index = () => {
 
   if (booksLoading || needsLoading || donationLoading) {
     return <div>در حال بارگذاری اطلاعات...</div>;
+  }
+
+  if (booksError || needsError || donationError) {
+    return <div>
+      خطا در بارگذاری اطلاعات. لطفا دوباره تلاش کنید.<br/>
+      {booksError || needsError || donationError}
+    </div>;
   }
 
   return (
