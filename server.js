@@ -2,6 +2,8 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import simpleGit from 'simple-git';
+import bodyParser from 'body-parser';
 
 const app = express();
 const PORT = 3001;
@@ -9,7 +11,15 @@ const PORT = 3001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(express.json());
+const git = simpleGit();
+const STATE_DIR = path.join(__dirname, 'state');
+
+// Ensure state directory exists
+if (!fs.existsSync(STATE_DIR)) {
+  fs.mkdirSync(STATE_DIR);
+}
+
+app.use(bodyParser.json());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
@@ -79,6 +89,38 @@ app.delete('/api/needs/:id', (req, res) => {
   needs = needs.filter(n => n.id !== req.params.id);
   writeData(needsFile, needs);
   res.status(204).end();
+});
+
+// API to get state for a page
+app.get('/api/state/:page', (req, res) => {
+  const page = req.params.page;
+  const filePath = path.join(STATE_DIR, `${page}.json`);
+  if (fs.existsSync(filePath)) {
+    res.json(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+  } else {
+    res.json({});
+  }
+});
+
+// API to save state for a page and commit to git
+app.post('/api/state/:page', async (req, res) => {
+  const page = req.params.page;
+  const { state, user } = req.body; // user: { name, email }
+  const filePath = path.join(STATE_DIR, `${page}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(state, null, 2), 'utf8');
+
+  try {
+    await git.add(filePath);
+    await git.commit(
+      `Update state for ${page} by ${user && user.name ? user.name : 'unknown user'}`,
+      filePath,
+      user && user.name && user.email ? { '--author': `${user.name} <${user.email}>` } : undefined
+    );
+    // Optionally: await git.push();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {

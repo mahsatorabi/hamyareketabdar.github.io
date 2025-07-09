@@ -11,6 +11,7 @@ import NeedsManagement from '@/components/NeedsManagement';
 import AddNeedForm from '@/components/AddNeedForm';
 import DonationRequestForm from '@/components/DonationRequestForm';
 import { toast } from "sonner";
+import { usePageState } from "../hooks/usePageState";
 
 interface Book {
   id: string;
@@ -46,26 +47,17 @@ interface DonationRequest {
 
 const Index = () => {
   const [user, setUser] = useState<{ username: string; role: 'librarian' | 'guest' } | null>(null);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [needs, setNeeds] = useState<CollectionNeed[]>([]);
-  const [donationRequests, setDonationRequests] = useState<DonationRequest[]>([]);
+  // Firestore-backed states
+  const { state: books, setState: setBooks, loading: booksLoading } = usePageState<Book[]>("books", { name: user?.username ?? "unknown", email: "unknown@example.com" });
+  const { state: needs, setState: setNeeds, loading: needsLoading } = usePageState<CollectionNeed[]>("needs", { name: user?.username ?? "unknown", email: "unknown@example.com" });
+  const { state: donationRequests, setState: setDonationRequests, loading: donationLoading } = usePageState<DonationRequest[]>("donationRequests", { name: user?.username ?? "unknown", email: "unknown@example.com" });
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNeedsForm, setShowNeedsForm] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [activeTab, setActiveTab] = useState<'books' | 'needs' | 'donations'>('books');
 
-  // خواندن داده‌ها از LocalStorage
-  const fetchAllData = () => {
-    const booksStored = localStorage.getItem('books');
-    setBooks(booksStored ? JSON.parse(booksStored) : []);
-    const needsStored = localStorage.getItem('needs');
-    setNeeds(needsStored ? JSON.parse(needsStored) : []);
-    const donationStored = localStorage.getItem('donationRequests');
-    setDonationRequests(donationStored ? JSON.parse(donationStored) : []);
-  };
-
-  useEffect(() => { fetchAllData(); }, []);
+  // Remove fetchAllData and localStorage usage
 
   const handleLogin = (username: string, password: string) => {
     if (username === 'ketab' && password === '1234') {
@@ -82,13 +74,13 @@ const Index = () => {
     setUser(null);
   };
 
-  const filteredBooks = books.filter(book => 
+  const filteredBooks = (books || []).filter(book => 
     book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     book.authors.some(author => author.toLowerCase().includes(searchTerm.toLowerCase())) ||
     book.publisher.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredNeeds = needs.filter(need => 
+  const filteredNeeds = (needs || []).filter(need => 
     need.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     need.authors.some(author => author.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (need.publisher && need.publisher.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -97,26 +89,23 @@ const Index = () => {
   // CRUD for Books
   const addBook = (bookData: Omit<Book, 'id' | 'createdAt'>) => {
     const newBook = { ...bookData, id: Date.now().toString(), createdAt: new Date() };
-    const updatedBooks = [...books, newBook];
+    const updatedBooks = [...(books || []), newBook];
     setBooks(updatedBooks);
-    localStorage.setItem('books', JSON.stringify(updatedBooks));
     setShowAddForm(false);
   };
 
   const updateBook = (bookData: Omit<Book, 'id' | 'createdAt'>) => {
     if (selectedBook) {
-      const updatedBooks = books.map(b => b.id === selectedBook.id ? { ...b, ...bookData } : b);
+      const updatedBooks = (books || []).map(b => b.id === selectedBook.id ? { ...b, ...bookData } : b);
       setBooks(updatedBooks);
-      localStorage.setItem('books', JSON.stringify(updatedBooks));
       setSelectedBook(null);
       setShowAddForm(false);
     }
   };
 
   const deleteBook = (bookId: string) => {
-    const updatedBooks = books.filter(b => b.id !== bookId);
+    const updatedBooks = (books || []).filter(b => b.id !== bookId);
     setBooks(updatedBooks);
-    localStorage.setItem('books', JSON.stringify(updatedBooks));
   };
 
   const handleEditBook = (book: Book) => {
@@ -127,16 +116,14 @@ const Index = () => {
   // CRUD for Needs
   const addNeed = (needData: Omit<CollectionNeed, 'id' | 'createdAt'>) => {
     const newNeed = { ...needData, id: Date.now().toString(), createdAt: new Date() };
-    const updatedNeeds = [...needs, newNeed];
+    const updatedNeeds = [...(needs || []), newNeed];
     setNeeds(updatedNeeds);
-    localStorage.setItem('needs', JSON.stringify(updatedNeeds));
     setShowNeedsForm(false);
   };
 
   const deleteNeed = (needId: string) => {
-    const updatedNeeds = needs.filter(n => n.id !== needId);
+    const updatedNeeds = (needs || []).filter(n => n.id !== needId);
     setNeeds(updatedNeeds);
-    localStorage.setItem('needs', JSON.stringify(updatedNeeds));
   };
 
   // CRUD for Donation Requests
@@ -150,30 +137,31 @@ const Index = () => {
       status: 'pending',
       createdAt: new Date()
     };
-    const updatedRequests = [...donationRequests, newRequest];
+    const updatedRequests = [...(donationRequests || []), newRequest];
     setDonationRequests(updatedRequests);
-    localStorage.setItem('donationRequests', JSON.stringify(updatedRequests));
     toast.success('درخواست شما ثبت شد و پس از تایید کتابدار نمایش داده خواهد شد.');
   };
 
   const approveDonationRequest = (id: string) => {
-    const updatedRequests = donationRequests.map(req => req.id === id ? { ...req, status: 'approved' } : req);
+    const updatedRequests = (donationRequests || []).map(req => req.id === id ? { ...req, status: 'approved' } : req);
     setDonationRequests(updatedRequests);
-    localStorage.setItem('donationRequests', JSON.stringify(updatedRequests));
     toast.success('درخواست تایید شد.');
   };
 
   const rejectDonationRequest = (id: string) => {
-    const updatedRequests = donationRequests.map(req => req.id === id ? { ...req, status: 'rejected' } : req);
+    const updatedRequests = (donationRequests || []).map(req => req.id === id ? { ...req, status: 'rejected' } : req);
     setDonationRequests(updatedRequests);
-    localStorage.setItem('donationRequests', JSON.stringify(updatedRequests));
     toast.error('درخواست رد شد.');
   };
 
-  const totalBooks = books.reduce((sum, book) => sum + book.quantity, 0);
+  const totalBooks = (books || []).reduce((sum, book) => sum + book.quantity, 0);
 
   if (!user) {
     return <LoginForm onLogin={handleLogin} />;
+  }
+
+  if (booksLoading || needsLoading || donationLoading) {
+    return <div>در حال بارگذاری اطلاعات...</div>;
   }
 
   return (
@@ -194,7 +182,7 @@ const Index = () => {
                 <User className="h-4 w-4" />
                 <span>{user.username} ({user.role === 'librarian' ? 'کتابدار' : 'مهمان'})</span>
               </div>
-              <Button variant="outline" size="sm" onClick={fetchAllData} className="ml-2">
+              <Button variant="outline" size="sm" onClick={() => {}} className="ml-2">
                 به‌روزرسانی
               </Button>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -233,7 +221,7 @@ const Index = () => {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-primary">
-                {activeTab === 'books' ? books.length : needs.length}
+                {activeTab === 'books' ? (books || []).length : (needs || []).length}
               </div>
               <div className="text-sm text-muted-foreground">
                 {activeTab === 'books' ? 'عنوان کتاب' : 'نیاز ثبت شده'}
@@ -243,7 +231,7 @@ const Index = () => {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-accent">
-                {activeTab === 'books' ? totalBooks : needs.filter(n => n.priority === 'high').length}
+                {activeTab === 'books' ? totalBooks : (needs || []).filter(n => n.priority === 'high').length}
               </div>
               <div className="text-sm text-muted-foreground">
                 {activeTab === 'books' ? 'مجموع نسخه‌ها' : 'اولویت بالا'}
@@ -317,8 +305,8 @@ const Index = () => {
               )}
               <div className="space-y-4 mt-6">
                 {(user.role === 'librarian'
-                  ? donationRequests
-                  : donationRequests.filter(req => req.status === 'approved')
+                  ? (donationRequests || [])
+                  : (donationRequests || []).filter(req => req.status === 'approved')
                 ).length === 0 ? (
                   <Card>
                     <CardContent className="p-8 text-center">
@@ -329,10 +317,10 @@ const Index = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  (user.role === 'librarian'
-                    ? donationRequests
-                    : donationRequests.filter(req => req.status === 'approved')
-                  ).map(req => (
+                  ((user.role === 'librarian'
+                    ? (donationRequests || [])
+                    : (donationRequests || []).filter(req => req.status === 'approved')
+                  )).map(req => (
                     <Card key={req.id}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">{req.title}</CardTitle>
