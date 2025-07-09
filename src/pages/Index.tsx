@@ -172,10 +172,6 @@ const Index = () => {
     return <LoginForm onLogin={handleLogin} />;
   }
 
-  if (booksLoading || needsLoading || donationLoading) {
-    return <div>در حال بارگذاری اطلاعات...</div>;
-  }
-
   if (booksError || needsError || donationError) {
     return <div>
       خطا در بارگذاری اطلاعات. لطفا دوباره تلاش کنید.<br/>
@@ -184,7 +180,22 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div className="min-h-screen bg-gradient-hero relative">
+      {/* Loading Overlay */}
+      {(booksLoading || needsLoading || donationLoading) && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(255,255,255,0.6)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+            <div className="text-lg font-bold text-primary">در حال بارگذاری اطلاعات...</div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-card/90 backdrop-blur-md border-b border-border/50 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
