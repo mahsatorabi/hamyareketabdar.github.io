@@ -7,7 +7,7 @@ interface UserInfo {
   email: string;
 }
 
-export function usePageState<T = any>(page: string, user: UserInfo) {
+export function usePageState<T = any>(collection: string, user: UserInfo) {
   const [state, setState] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export function usePageState<T = any>(page: string, user: UserInfo) {
       setLoading(true);
       setError(null);
       try {
-        const docRef = doc(db, "pages", page);
+        const docRef = doc(db, collection, "shared");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setState(docSnap.data().state as T);
@@ -31,13 +31,13 @@ export function usePageState<T = any>(page: string, user: UserInfo) {
       }
     }
     fetchState();
-  }, [page]);
+  }, [collection]);
 
   const saveState = useCallback(async (newState: T) => {
     setLoading(true);
     setError(null);
     try {
-      const docRef = doc(db, "pages", page);
+      const docRef = doc(db, collection, "shared");
       await setDoc(docRef, {
         state: newState,
         lastModifiedBy: user,
@@ -49,7 +49,7 @@ export function usePageState<T = any>(page: string, user: UserInfo) {
     } finally {
       setLoading(false);
     }
-  }, [page, user]);
+  }, [collection, user]);
 
   return { state, setState: saveState, loading, error };
-} 
+}
