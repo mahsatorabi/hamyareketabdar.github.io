@@ -7,6 +7,22 @@ interface UserInfo {
   email: string;
 }
 
+// تابع کمکی برای حذف عمیق فیلدهای undefined
+function removeUndefinedFieldsDeep<T>(data: T): T {
+  if (Array.isArray(data)) {
+    return data.map(item => removeUndefinedFieldsDeep(item)) as any;
+  } else if (typeof data === 'object' && data !== null) {
+    const obj: any = {};
+    for (const key in data) {
+      if (data[key] !== undefined) {
+        obj[key] = removeUndefinedFieldsDeep(data[key]);
+      }
+    }
+    return obj;
+  }
+  return data;
+}
+
 export function usePageState<T = any>(collection: string, user: UserInfo) {
   const [state, setState] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,8 +54,9 @@ export function usePageState<T = any>(collection: string, user: UserInfo) {
     setError(null);
     try {
       const docRef = doc(db, collection, "shared");
+      const cleanState = removeUndefinedFieldsDeep(newState);
       await setDoc(docRef, {
-        state: newState,
+        state: cleanState,
         lastModifiedBy: user,
         lastModifiedAt: new Date().toISOString(),
       });
