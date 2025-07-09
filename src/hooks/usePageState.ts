@@ -22,7 +22,7 @@ export function usePageState<T = any>(collection: string, user: UserInfo) {
         if (docSnap.exists()) {
           setState(docSnap.data().state as T);
         } else {
-          setState({} as T);
+          setState([] as T);
         }
       } catch (err: any) {
         setError(err.message || String(err));
